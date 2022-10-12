@@ -4,5 +4,7 @@ It is a QGIS plugin which can be used to edit an SHP file (line file) to adjust 
 Demonstration of Plugin:
 
 
-https://user-images.githubusercontent.com/61660633/195330724-1dc6ee23-1169-4d0a-b048-97e679287031.mp4
+
+
+https://user-images.githubusercontent.com/61660633/195330878-a2be51c9-cbb5-405f-b8f3-7f098d00dec6.mp4
 
