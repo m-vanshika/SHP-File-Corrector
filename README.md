@@ -10,7 +10,7 @@ https://user-images.githubusercontent.com/61660633/195330878-a2be51c9-cbb5-405f-
 
 Steps to use the plugin:
 
-1.Install and start the plugin in QGIS
+  1.Install and start the plugin in QGIS
 
 2. Select the SHP layer that needs to be edited and give the path for final output layer 
 
