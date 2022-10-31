@@ -108,14 +108,16 @@ class ShpFileCorrector:
         self.verticesLayerName = __('Vertices')
         self.candidatesLayerName = __('Candidates')
         self.finalLayerName = __('Final')
-        self.finalLayerPolygonsName = __('Final Polygons')
         self.groupName = __('ShpFileCorrector')
         self.baseRasterLayer: Optional[QgsRasterLayer] = None
         self.segmentsLayer: Optional[QgsVectorLayer] = None
         self.simplifiedSegmentsLayer: Optional[QgsVectorLayer] = None
         self.verticesLayer: Optional[QgsVectorLayer] = None
-        self.candidatesLayer: Optional[QgsVectorLayer] = None
-        self.finalLayer: Optional[QgsVectorLayer] = None
+        self.candidatesLayerLine: Optional[QgsVectorLayer] = None
+        self.candidatesLayerPoint: Optional[QgsVectorLayer] = None
+        self.candidatesLayerPoly: Optional[QgsVectorLayer] = None
+        self.finalLayerLine: Optional[QgsVectorLayer] = None
+        self.finalLayerPoint: Optional[QgsVectorLayer] = None
         self.finalLayerPolygons: Optional[QgsVectorLayer] = None
 
 
@@ -206,51 +208,94 @@ class ShpFileCorrector:
     def create_Final_layer(self):
     	crs=self.__getCrs(self.currentLayer)
     	if(os.path.isfile(self.finalFile)):
-    		finalLayer=QgsVectorLayer(self.finalLayerName,'org')
+    		finalLayerLine=QgsVectorLayer(self.finalLayerName,'org')
     	else:
-    		finalLayer=QgsVectorLayer('MultiLineString?crs=%s'%crs.authid(),self.finalLayerName,'memory')
-    		finalLayer.dataProvider().addAttributes([QgsField('FID',QVariant.Int)])
-    		finalLayer.updateFields()
-    		finalLayer.updateExtents()
+    		finalLayerLine=QgsVectorLayer('MultiLineString?crs=%s'%crs.authid(),self.finalLayerName,'memory')
+    		finalLayerPoly=QgsVectorLayer('Polygon?crs=%s'%crs.authid(),self.finalLayerName,'memory')
+    		finalLayerPoint=QgsVectorLayer('Point?crs=%s'%crs.authid(),self.finalLayerName,'memory')
+    		finalLayerLine.dataProvider().addAttributes([QgsField('FID',QVariant.Int)])
+    		finalLayerLine.updateFields()
+    		finalLayerLine.updateExtents()
     		if(self.finalFile):
     			(writeErrorCode,writeErrorMsg)=QgsVectorFileWriter.writeAsVectorFormat(finalLayer,self.finalFile,'utf-8',crs,'ESRI Shapefile')
     			if(writeErrorMsg):
     				show_info('[%s] %s',(writeErrorCode,writeErrorMsg))
-    			finalLayer=QgsVectorLayer(self.finalFile,self.finalLayerName,'org')
-    	return finalLayer
+    			finalLayerLine=QgsVectorLayer(self.finalFile,self.finalLayerName,'org')
+    	return (finalLayerLine,finalLayerPoint,finalLayerPoly)
     def create_Candidate_Layer(self):
 
     	crs=self.__getCrs(self.currentLayer).authid()
-    	candidatesLayer=QgsVectorLayer('MultiLineString?crs=%s' %crs,self.candidatesLayerName,'memory')
+    	candidatesLayerLine=QgsVectorLayer('MultiLineString?crs=%s' %crs,self.candidatesLayerName,'memory')
+    	candidatesLayerPoly=QgsVectorLayer('Polygon?crs=%s' %crs,self.candidatesLayerName,'memory')
+    	candidatesLayerPoint=QgsVectorLayer('Point?crs=%s' %crs,self.candidatesLayerName,'memory')
     	finalLayer=self.create_Final_layer()
     	layerTreeIndex = utils.get_tree_node_index(self.currentLayer)
 
     	#self.dlg.featureDetails.setText(str(get_group()))
-    	utils.add_layer(candidatesLayer,name='NewLayer', file=self.__getStylePath('candidates.qml'), parent=get_group(), index=layerTreeIndex + 1)
-    	utils.add_layer(finalLayer, file=self.__getStylePath('final.qml'), parent=get_group(), index=layerTreeIndex + 2)
+    	utils.add_layer(candidatesLayerLine,name='NewLayer', file=self.__getStylePath('candidates.qml'), parent=get_group(), index=layerTreeIndex + 1)
+    	utils.add_layer(candidatesLayerPoint,name='NewLayer', file=self.__getStylePath('candidates.qml'), parent=get_group(), index=layerTreeIndex + 1)
+    	utils.add_layer(candidatesLayerPoly,name='NewLayer', file=self.__getStylePath('candidates.qml'), parent=get_group(), index=layerTreeIndex + 1)
+    	utils.add_layer(finalLayer[0], file=self.__getStylePath('final.qml'), parent=get_group(), index=layerTreeIndex + 2)
+    	utils.add_layer(finalLayer[1], file=self.__getStylePath('final.qml'), parent=get_group(), index=layerTreeIndex + 2)
+    	utils.add_layer(finalLayer[2], file=self.__getStylePath('final.qml'), parent=get_group(), index=layerTreeIndex + 2)
     	#self.dlg.featureDetails.setText(str(candidatesLayer))
     	# candidatesLayer.featureAdded.connect(self.onCandidatesLayerFeatureChanged)
     	# candidatesLayer.featuresDeleted.connect(self.onCandidatesLayerFeatureChanged)
     	# candidatesLayer.beforeEditingStarted.connect(self.onCandidatesLayerBeforeEditingStarted)
     	# finalLayer.featureAdded.connect(self.onFinalLayerFeaturesAdded)
     	# finalLayer.featuresDeleted.connect(self.onFinalLayerFeaturesDeleted)
-    	self.candidatesLayer = candidatesLayer
-    	self.finalLayer = finalLayer
+    	self.candidatesLayerLine = candidatesLayerLine
+    	self.candidatesLayerPoint=candidatesLayerPoint
+    	self.candidatesLayerPoly=candidatesLayerPoly
+    	self.finalLayerLine = finalLayer[0]
+    	self.finalLayerPoint=finalLayer[1]
+    	self.finalLayerPolygons=finalLayer[2]
 
-    	self.candidatesLayer.startEditing()
-    	pr=self.candidatesLayer.dataProvider()
+    	self.candidatesLayerLine.startEditing()
+    	pr=self.candidatesLayerLine.dataProvider()
     	fields = self.currentFeature.fields()
     	pr.addAttributes(fields)
-    	self.candidatesLayer.updateFields()
-    	self.candidatesLayer.commitChanges()
-    	self.candidatesLayer.updateExtents()
-    	self.finalLayer.startEditing()
-    	pr=self.finalLayer.dataProvider()
+    	self.candidatesLayerLine.updateFields()
+    	self.candidatesLayerLine.commitChanges()
+    	self.candidatesLayerLine.updateExtents()
+
+    	self.candidatesLayerPoint.startEditing()
+    	pr=self.candidatesLayerPoint.dataProvider()
+    	pr.addAttributes(fields)
+    	self.candidatesLayerPoint.updateFields()
+    	self.candidatesLayerPoint.commitChanges()
+    	self.candidatesLayerPoint.updateExtents()
+
+    	self.candidatesLayerPoly.startEditing()
+    	pr=self.candidatesLayerPoly.dataProvider()
+    	pr.addAttributes(fields)
+    	self.candidatesLayerPoly.updateFields()
+    	self.candidatesLayerPoly.commitChanges()
+    	self.candidatesLayerPoly.updateExtents()
+
+    	self.finalLayerPolygons.startEditing()
+    	pr=self.finalLayerPolygons.dataProvider()
     	fields = self.currentFeature.fields()
     	pr.addAttributes(fields)
-    	self.finalLayer.updateFields()
-    	self.finalLayer.commitChanges()
-    	self.finalLayer.updateExtents()
+    	self.finalLayerPolygons.updateFields()
+    	self.finalLayerPolygons.commitChanges()
+    	self.finalLayerPolygons.updateExtents()
+
+    	self.finalLayerLine.startEditing()
+    	pr=self.finalLayerLine.dataProvider()
+    	fields = self.currentFeature.fields()
+    	pr.addAttributes(fields)
+    	self.finalLayerLine.updateFields()
+    	self.finalLayerLine.commitChanges()
+    	self.finalLayerLine.updateExtents()
+
+    	self.finalLayerPoint.startEditing()
+    	pr=self.finalLayerPoint.dataProvider()
+    	fields = self.currentFeature.fields()
+    	pr.addAttributes(fields)
+    	self.finalLayerPoint.updateFields()
+    	self.finalLayerPoint.commitChanges()
+    	self.finalLayerPoint.updateExtents()
 
     def initGui(self):
         """Create the menu entries and toolbar icons inside the QGIS GUI."""
@@ -286,27 +331,31 @@ class ShpFileCorrector:
     def onAcceptedFeature(self):
     	if( not self.currentFeature in self.fList):
     		return
-    	self.candidatesLayer.startEditing()
-    	pr=self.candidatesLayer.dataProvider()
-    	#pr.addFeatures([self.currentFeature])
     	L2_feat = QgsFeature()
     	L2_feat.setGeometry(self.currentFeature.geometry())
     	L2_feat.setAttributes(self.currentFeature.attributes())
     	L2_feat.setId(self.currentFeature.id())
-    	pr.addFeatures([L2_feat])
-    	#pr.changeAttributeValues(L2_feat.id(),atts)
-
-
-
-    	self.candidatesLayer.commitChanges()
-    	self.candidatesLayer.updateExtents()
-
-    	#self.dlg.featureDetails.setText(str(self.candidatesLayer.fields.names()))
-    	
-
+    	geom=self.currentFeature.geometry()
+    	if geom.type()==QgsWkbTypes.PolygonGeometry:
+    		self.candidatesLayerPoly.startEditing()
+    		pr=self.candidatesLayerPoly.dataProvider()
+    		pr.addFeatures([L2_feat])
+    		self.candidatesLayerPoly.commitChanges()
+    		self.candidatesLayerPoly.updateExtents()
+    	if geom.type() == QgsWkbTypes.PointGeometry:
+    		self.candidatesLayerPoint.startEditing()
+    		pr=self.candidatesLayerPoint.dataProvider()
+    		pr.addFeatures([L2_feat])
+    		self.candidatesLayerPoint.commitChanges()
+    		self.candidatesLayerPoint.updateExtents()
+    	if geom.type()== QgsWkbTypes.LineGeometry:
+    		self.candidatesLayerLine.startEditing()
+    		pr=self.candidatesLayerLine.dataProvider()
+    		pr.addFeatures([L2_feat])
+    		self.candidatesLayerLine.commitChanges()
+    		self.candidatesLayerLine.updateExtents()
     	self.fList.remove(self.currentFeature)
     	self.allf.remove(str(self.currentFeature.id())+':'+str(self.currentFeature.attributes()))
-
     	self.dlg.allFeatures.clear()
     	self.dlg.allFeatures.addItems(self.allf)
     	if(len(self.fList)==0):
@@ -316,37 +365,63 @@ class ShpFileCorrector:
     	self.currentFeature=self.fList[0]
 
     def addToFinalLayer(self):
-    	if( not self.currentFeature in self.fList):
+    	if(len(self.fList_cand)==0):
+    		self.dlg.featureDetails_2.setText('all features done')
     		return
-    	self.finalLayer.startEditing()
-    	pr=self.finalLayer.dataProvider()
+
+    	if( not self.currentFeature in self.fList_cand):
+    		return
+
+    	cand=self.candidatesLayerLine
+    	final=self.finalLayerLine
+    	self.currentLayer=self.candidatesLayerLine
+    	if self.dlg.point.isChecked()==True :
+    		cand=self.candidatesLayerPoint
+    		self.currentLayer=self.candidatesLayerPoint
+    		final=self.finalLayerPoint
+    	if self.dlg.line.isChecked()==True:
+    		cand=self.candidatesLayerLine
+    		final=self.finalLayerLine
+    		self.currentLayer=self.candidatesLayerLine
+    	if self.dlg.polygon.isChecked()==True:
+    		cand=self.candidatesLayerPoly
+    		final=self.finalLayerPolygons
+    		self.currentLayer=self.candidatesLayerPoly
+    	
+
+    	final.startEditing()
+    	pr=final.dataProvider()
+
     	old=self.currentFeature
-    	for feature in self.candidatesLayer.selectedFeatures():
+    	for feature in cand.selectedFeatures():
 		    self.currentFeature=feature
 
-    	self.candidatesLayer.commitChanges()
+    	cand.commitChanges()
     	L2_feat=QgsFeature()
     	L2_feat.setGeometry(self.currentFeature.geometry())
     	L2_feat.setAttributes(self.currentFeature.attributes())
     	L2_feat.setId(self.currentFeature.id())
     	pr.addFeatures([L2_feat])
-    	self.finalLayer.commitChanges()
-    	self.finalLayer.updateExtents()
-    	self.fList.remove(old)
-    	self.allf.remove(str(old.id())+':'+str(old.attributes()))
+    	final.commitChanges()
+    	final.updateExtents()
+    	self.fList_cand.remove(old)
+    	self.allf_cand.remove(str(old.id())+':'+str(old.attributes()))
 
     	self.dlg.newFeatures.clear()
-    	self.dlg.newFeatures.addItems(self.allf)
+    	self.dlg.newFeatures.addItems(self.allf_cand)
     	self.resetRubberbands()
-    	self.finalLayer.commitChanges()
-    	self.candidatesLayer.startEditing()
-    	if(len(self.fList)==0):
+    	final.commitChanges()
+    	
+    	
+    	cand.startEditing()
+    	res =cand.dataProvider().deleteFeatures([old.id()])
+    	cand.removeSelection()
+    	if(len(self.fList_cand)==0):
     		self.dlg.featureDetails_2.setText('all features done')
     		return
-    	self.dlg.featureDetails_2.setText(self.all_feature_details(self.fList[0]))
-    	self.currentFeature=self.fList[0]
-    	self.candidatesLayer.removeSelection()
-    	self.candidatesLayer.select(self.currentFeature.id())
+    	self.dlg.featureDetails_2.setText(self.all_feature_details(self.fList_cand[0]))
+    	self.currentFeature=self.fList_cand[0]
+    	cand.select(self.currentFeature.id())
 
     def onDeletedFeature(self):
     	self.fList.remove(self.currentFeature)
@@ -360,14 +435,20 @@ class ShpFileCorrector:
     	self.currentFeature=self.fList[0]
 
     def on_combobox_changed(self, value):
+    	if(value<0 or value>=len(self.fList)):
+    		self.dlg.featureDetails.setText(str('Feature not found'))
+    		return
     	self.currentFeature=self.fList[value]
     	self.dlg.featureDetails.setText(self.all_feature_details(self.fList[value]))
 
     def on_new_combobox_changed(self, value):
-    	self.currentFeature=self.fList[value]
-    	self.dlg.featureDetails_2.setText(self.all_feature_details(self.fList[value]))
-    	self.candidatesLayer.removeSelection()
-    	self.candidatesLayer.select(self.currentFeature.id())
+    	if(value<0 or value>=len(self.fList_cand)):
+    		self.dlg.featureDetails_2.setText(str('Feature not found'))
+    		return
+    	self.currentFeature=self.fList_cand[value]
+    	self.dlg.featureDetails_2.setText(self.all_feature_details(self.fList_cand[value]))
+    	self.candidatesLayerLine.removeSelection()
+    	self.candidatesLayerLine.select(self.currentFeature.id())
 
 
     def on_layer_changed(self, value):
@@ -432,38 +513,59 @@ class ShpFileCorrector:
     	self.currentFeature=self.fList[0]
     	self.create_Candidate_Layer()
 
+    allf_cand=[]
+    fList_cand=[]
     def editNewLayer(self):
+
     	tabber=self.dlg.tabWidget
     	tabber.setTabEnabled(2,True)
     	tabber.setCurrentIndex(2)
-    	self.currentLayer=self.candidatesLayer
-    	i=0
-    	self.allf=[]
-    	self.fList=[]
-    	s=''
-    	for feature in self.candidatesLayer.getFeatures():
-    		i+=1
-    		self.fList.append(feature)
-    		st=str(feature.id())+':'+str(feature.attributes())
-    		self.allf.append(st)
-    	self.dlg.featureDetails_2.setText(self.all_feature_details(self.fList[0]))
+
     	self.dlg.newFeatures.clear()
-    	self.dlg.newFeatures.addItems(self.allf)
-    	self.currentFeature=self.fList[0]
-    	self.candidatesLayer.select(self.currentFeature.id())
+    	i=0
+    	self.allf_cand=[]
+    	self.fList_cand=[]
+    	s=''
+    	cand=self.candidatesLayerLine
+    	candLayer=self.candidatesLayerLine
+    		
+    	self.currentLayer=self.candidatesLayerLine
+    	if self.dlg.point.isChecked()==True :
+    		candLayer=self.candidatesLayerPoint
+    		self.currentLayer=self.candidatesLayerPoint
+    	if self.dlg.line.isChecked()==True:
+    		candLayer=self.candidatesLayerLine
+    		self.currentLayer=self.candidatesLayerLine
+    	if self.dlg.polygon.isChecked()==True:
+    		candLayer=self.candidatesLayerPoly
+    		self.currentLayer=self.candidatesLayerPoly
+    	for feature in self.currentLayer.getFeatures():
+    		i+=1
+    		geom=feature.geometry()
+    		self.fList_cand.append(feature)
+    		st=str(feature.id())+':'+str(feature.attributes())
+    		self.allf_cand.append(st)
+    	if(len(self.fList_cand)==0):
+    		self.dlg.featureDetails_2.setText('no feature availaible')
+    		return
+    	self.dlg.featureDetails_2.setText(self.all_feature_details(self.fList_cand[0]))
+    	self.dlg.newFeatures.addItems(self.allf_cand)
+    	self.currentFeature=self.fList_cand[0]
+    	self.currentLayer.select(self.currentFeature.id())
     	self.dlg.newFeatures.currentIndexChanged.connect(self.on_new_combobox_changed)
-    	self.candidatesLayer.startEditing()
-    	self.iface.setActiveLayer(self.candidatesLayer)
-    	self.candidatesLayer.removeSelection()
-    	self.candidatesLayer.select(self.currentFeature.id())
+    	self.currentLayer.startEditing()
+    	self.iface.setActiveLayer(self.currentLayer)
+    	self.currentLayer.removeSelection()
 
 
 
     def saveFinalLayer(self):
     	loc=self.dlg.finalLoc.text()
-    	#QgsVectorFileWriter.writeAsVectorFormat(self.candidatesLayer,loc,'utf-8',None,'ESRI Shapefile')
+    	#QgsVectorFileWriter.writeAsVectorFormat(self.candidatesLayerLine,loc,'utf-8',None,'ESRI Shapefile')
     	crs=self.__getCrs(self.currentLayer)
-    	QgsVectorFileWriter.writeAsVectorFormat(self.finalLayer,self.dlg.finalLoc.text(),'utf-8',crs,'ESRI Shapefile')
+    	QgsVectorFileWriter.writeAsVectorFormat(self.finalLayerLine,self.dlg.finalLoc.text()+'_Line','utf-8',crs,'ESRI Shapefile')
+    	QgsVectorFileWriter.writeAsVectorFormat(self.finalLayerPoint,self.dlg.finalLoc.text()+'_Point','utf-8',crs,'ESRI Shapefile')
+    	QgsVectorFileWriter.writeAsVectorFormat(self.finalLayerPolygons,self.dlg.finalLoc.text()+'_Poly','utf-8',crs,'ESRI Shapefile')
     	self.dlg.close()
 
 
@@ -506,20 +608,7 @@ class ShpFileCorrector:
     vMarker = None
     crossRb = QgsRubberBand(iface.mapCanvas(),QgsWkbTypes.LineGeometry)
     crossRb.setColor(Qt.black)
-    def zoom(self,point):
-    	canvas = self.iface.mapCanvas()
-    	currExt = canvas.extent()
-    	leftPt = QgsPoint(currExt.xMinimum(),point.y())
-    	rightPt = QgsPoint(currExt.xMaximum(),point.y())
-    	topPt = QgsPoint(point.x(),currExt.yMaximum())
-    	bottomPt = QgsPoint(point.x(),currExt.yMinimum())
-    	horizLine = QgsGeometry.fromPolyline( [ leftPt , rightPt ] )
-    	vertLine = QgsGeometry.fromPolyline( [ topPt , bottomPt ] )
-    	self.crossRb.reset(QgsWkbTypes.LineGeometry)
-    	rb = self.rubberBand
-    	rb.addPoint(point)
-    	QTimer.singleShot(500,self.resetRubberbands)
-
+    
     def resetRubberbands(self):
     	canvas = self.canvas
     	self.rubberBand.reset()
@@ -532,7 +621,16 @@ class ShpFileCorrector:
     	currExt = canvas.extent()
     	canvasCenter = currExt.center()
     	cord=self.getCordinates(self.currentFeature)
-    	self.showRect(cord[0][0],cord[0][1])
+    	if self.dlg.polygon.isChecked()==True:
+    		self.showRect(cord[0][0][0],cord[0][0][1])
+    	elif self.dlg.line.isChecked()==True:
+    		self.showRect(cord[0][0],cord[0][1])
+    	else:
+    		self.showRect1(cord)
+    	self.currentLayer.startEditing()
+    	self.iface.setActiveLayer(self.currentLayer)
+    	self.currentLayer.removeSelection()
+    	self.currentLayer.select(self.currentFeature.id())
     	canvas.refresh()
 
 
@@ -562,8 +660,26 @@ class ShpFileCorrector:
     	# newRect = QgsRectangle(point1,point3)
     	# self.canvas.setExtent(newRect)
     	self.iface.actionZoomToSelected().trigger()
-
-
+    	self.iface.actionZoomToSelected().trigger()
+    def showRect1(self, startPoint: QgsPointXY) -> None:
+    	self.rubberBand.reset(QgsWkbTypes.PolygonGeometry)
+    	x=startPoint.x()
+    	y=startPoint.y()
+    	x1=x+x/2
+    	y1=y+y/2
+    	x2=x-x/2
+    	y2=y-y/2
+    	point1 = QgsPointXY(x1,y1)
+    	point2 = QgsPointXY(x1,y2)
+    	point3 = QgsPointXY(x2,y2)
+    	point4 = QgsPointXY(x2,y1)
+    	self.rubberBand.addPoint(point1, False)
+    	self.rubberBand.addPoint(point2, False)
+    	self.rubberBand.addPoint(point3, False)
+    	self.rubberBand.addPoint(point4, True)
+    	self.rubberBand.show()
+    	self.iface.actionZoomToSelected().trigger()
+    	self.iface.actionZoomToSelected().trigger()
 
     def run(self):
         """Run method that performs all the real work"""
@@ -594,6 +710,8 @@ class ShpFileCorrector:
        	tabber=self.dlg.tabWidget
        	tabber.setTabEnabled(1,False)
        	tabber.setTabEnabled(2,False)
+        self.dlg.line.setChecked(True)
+
        	self.dlg.acceptButton.clicked.connect(self.onAcceptedFeature)
        	self.dlg.deleteButton.clicked.connect(self.onDeletedFeature)
         self.dlg.nextButton.clicked.connect(self.move_to_next_tab)
@@ -601,6 +719,12 @@ class ShpFileCorrector:
         self.dlg.Save.clicked.connect(self.saveFinalLayer)
         self.dlg.Edit.clicked.connect(self.editLine)
         self.dlg.addToFinal.clicked.connect(self.addToFinalLayer)
+
+
+        self.dlg.line.toggled.connect(self.editNewLayer)
+        self.dlg.line.toggled.connect(self.editNewLayer)
+        self.dlg.line.toggled.connect(self.editNewLayer)
+
         # show the dialog
         self.dlg.show()
         # Run the dialog event loop
@@ -611,9 +735,9 @@ class ShpFileCorrector:
     	return t
 
     def onCandidatesLayerFeatureChanged(self, featureIds: typing.Union[int, typing.List[int]]) -> None:
-        assert self.candidatesLayer
+        assert self.candidatesLayerLine
 
-        enable = self.candidatesLayer.featureCount() > 0
+        enable = self.candidatesLayerLine.featureCount() > 0
         return enable
         #self.dockWidget.setCandidatesButtonsEnabled(enable
     def reset(self) -> None:
